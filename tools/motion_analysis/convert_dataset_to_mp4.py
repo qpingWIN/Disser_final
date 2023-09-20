@@ -134,11 +134,11 @@ if __name__ == "__main__":
 
     # Dataset Paths
     # Change this to point to the location of your dataset
-    dataset_path = '/path/to/UBFC-rPPG'
+    dataset_path = '/Users/qpingwin/labs/KlarityAII/DATASET_1_UBFC'
 
     # Save Paths
     # Change this to point to the location you'd like to save the MP4 videos
-    save_path = '/path/to/converted_mp4_videos'
+    save_path = '/Users/qpingwin/labs/KlarityAII/DATASET_1_UBFC_mp4_converted'
 
     # Dataset Processing
     process_ubfc_folder(dataset_path, os.path.join(save_path))

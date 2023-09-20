@@ -159,7 +159,9 @@ class PhysnetTrainer(BaseTrainer):
                 batch_size = test_batch[0].shape[0]
                 data, label = test_batch[0].to(
                     self.config.DEVICE), test_batch[1].to(self.config.DEVICE)
+                print("Shape of the input tensor:", data.shape)
                 pred_ppg_test, _, _, _ = self.model(data)
+                print ("Shape of pred_ppg_test:", pred_ppg_test.shape)
                 for idx in range(batch_size):
                     subj_index = test_batch[2][idx]
                     sort_index = int(test_batch[3][idx])

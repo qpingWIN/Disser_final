@@ -16,6 +16,8 @@ import cv2
 import numpy as np
 from dataset.data_loader.BaseLoader import BaseLoader
 from tqdm import tqdm
+from torchvision import transforms
+import random
 
 
 class PURELoader(BaseLoader):
@@ -97,11 +99,66 @@ class PURELoader(BaseLoader):
 
         return data_dirs_new
 
+    def generate_constant_transform(self):
+        pure_brightness_min, pure_brightness_max = 25, 100
+        smartphone_brightness_min, smartphone_brightness_max = 90, 180
+        brightness_lower_factor = smartphone_brightness_min / pure_brightness_max
+        brightness_upper_factor = smartphone_brightness_max / pure_brightness_min
+        brightness_const = random.uniform(brightness_lower_factor, brightness_upper_factor)
+
+        pure_saturation_min, pure_saturation_max = 20, 145
+        smartphone_saturation_min, smartphone_saturation_max = 82, 135
+        saturation_lower_factor = smartphone_saturation_min / pure_saturation_max
+        saturation_upper_factor = smartphone_saturation_max / pure_saturation_min
+        saturation_const = random.uniform(saturation_lower_factor, saturation_upper_factor)
+
+        constant_transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.ColorJitter(
+                brightness=brightness_const,
+                saturation=saturation_const,
+                hue=(-0.1,0.1)
+            ),
+            transforms.ToTensor()
+          ])
+        return constant_transform
+
     def preprocess_dataset_subprocess(self, data_dirs, config_preprocess, i, file_list_dict):
         """ Invoked by preprocess_dataset for multi_process. """
         filename = os.path.split(data_dirs[i]['path'])[-1]
         saved_filename = data_dirs[i]['index']
+        
 
+        constant_transform = self.generate_constant_transform()
+
+
+        '''        pure_brightness_min, pure_brightness_max = 25, 100
+                smartphone_brightness_min, smartphone_brightness_max = 90, 180
+                brightness_lower_factor = smartphone_brightness_min / pure_brightness_max
+                brightness_upper_factor = smartphone_brightness_max / pure_brightness_min
+                brightness_const = random.uniform(brightness_lower_factor, brightness_upper_factor)
+
+
+                pure_saturation_min, pure_saturation_max = 20, 145
+                smartphone_saturation_min, smartphone_saturation_max = 82, 135
+                saturation_lower_factor = smartphone_saturation_min / pure_saturation_max
+                saturation_upper_factor = smartphone_saturation_max / pure_saturation_min
+                saturation_const = random.uniform(saturation_lower_factor, saturation_upper_factor)
+
+
+                
+
+                
+                constant_transform = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.ColorJitter(
+                        brightness=brightness_const,
+                        saturation=saturation_const,
+                        hue=(-0.1,0.1)
+                    ),
+                    transforms.ToTensor()
+                ])
+        '''
         # Read Frames
         if 'None' in config_preprocess.DATA_AUG:
             # Utilize dataset-specific function to read video
@@ -121,20 +178,58 @@ class PURELoader(BaseLoader):
             bvps = self.read_wave(
                 os.path.join(data_dirs[i]['path'], "{0}.json".format(filename)))
 
-        target_length = frames.shape[0]
-        bvps = BaseLoader.resample_ppg(bvps, target_length)
-        frames_clips, bvps_clips = self.preprocess(frames, bvps, config_preprocess)
-        input_name_list, label_name_list = self.save_multi_process(frames_clips, bvps_clips, saved_filename)
+
+        augmented_frames = self.read_video(
+            os.path.join(data_dirs[i]['path'], filename, ""), transform=constant_transform)
+        
+
+        print("Original shape:", frames.shape)
+        print("Transformed shape:", augmented_frames.shape)
+        
+
+        augmented_frames = augmented_frames.astype('uint8')
+
+        # Check if dimensions match before concatenation
+        if frames.shape[1:] != augmented_frames.shape[1:]:
+            raise ValueError("Dimensions of original and augmented frames must match.")
+        if frames.dtype != augmented_frames.dtype:
+            raise ValueError("Data types of original and augmented frames must match.", frames.dtype)
+        
+        
+
+        # Combine original and augmented frames
+        combined_frames = np.concatenate((frames, augmented_frames), axis=0)
+    
+        # Duplicate labels to match the combined frames
+        duplicated_bvps = np.concatenate((bvps, bvps), axis=0)
+    
+        # Ensure the label length matches the combined frames length
+        target_length = combined_frames.shape[0]
+        duplicated_bvps = BaseLoader.resample_ppg(duplicated_bvps, target_length)
+    
+        frames_clips, bvps_clips = self.preprocess(
+            combined_frames, duplicated_bvps, config_preprocess)
+    
+        input_name_list, label_name_list = self.save_multi_process(
+            frames_clips, bvps_clips, saved_filename)
+    
         file_list_dict[i] = input_name_list
 
     @staticmethod
-    def read_video(video_file):
+    def read_video(video_file, transform=None):
         """Reads a video file, returns frames(T, H, W, 3) """
         frames = list()
         all_png = sorted(glob.glob(video_file + '*.png'))
         for png_path in all_png:
             img = cv2.imread(png_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+
+            if transform is not None:
+                
+                img = transform(img)
+                img = img.permute(1,2,0).numpy()
+                
             frames.append(img)
         return np.asarray(frames)
 
@@ -146,3 +241,6 @@ class PURELoader(BaseLoader):
             waves = [label["Value"]["waveform"]
                      for label in labels["/FullPackage"]]
         return np.asarray(waves)
+
+    
+
