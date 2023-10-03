@@ -8,7 +8,7 @@ TRAIN:
   DATA:
     FS: 30
     DATASET: UBFC-rPPG
-    DO_PREPROCESS: False               # if first time, should be true
+    DO_PREPROCESS: True               # if first time, should be true
     DATA_FORMAT: NDCHW
     DATA_PATH: "/home/ssm-user/dataset/full_UBFC_final"                     # Raw dataset path, need to be updated
     CACHED_PATH: "/home/ssm-user/dataset/full_UBFC_preprocessed_faceboxcrop"    # Processed dataset save path, need to be updated
@@ -36,7 +36,7 @@ VALID:
   DATA:
     FS: 30
     DATASET: UBFC-rPPG
-    DO_PREPROCESS: False                  # if first time, should be true
+    DO_PREPROCESS: True                  # if first time, should be true
     DATA_FORMAT: NDCHW
     DATA_PATH: "/home/ssm-user/dataset/full_UBFC_final"                     # Raw dataset path, need to be updated
     CACHED_PATH: "/home/ssm-user/dataset/full_UBFC_preprocessed_faceboxcrop"    # Processed dataset save path, need to be updated
@@ -66,7 +66,7 @@ TEST:
   DATA:
     FS: 30
     DATASET: PURE
-    DO_PREPROCESS: False                    # if first time, should be true
+    DO_PREPROCESS: True                    # if first time, should be true
     DATA_FORMAT: NDCHW
     DATA_PATH: "/home/ssm-user/dataset/Pure_dataset"                     # Raw dataset path, need to be updated
     CACHED_PATH: "/home/ssm-user/dataset/Pure_dataset_preprocessed_faceboxcrop"    # Processed dataset save path, need to be updated
