@@ -262,7 +262,7 @@ class BaseLoader(Dataset):
 
         return frames_clips, bvps_clips
 
-    def face_detection(self, frame, use_larger_box=False, larger_box_coef=1.0):
+    def face_detection(self, frame, use_larger_box=False, larger_box_coef=1.0, box_augmentation_range=0.1,apply_augmentation=True,):
         """Face detection on a single frame.
 
         Args:
@@ -285,11 +285,17 @@ class BaseLoader(Dataset):
             print("Warning: More than one faces are detected(Only cropping the biggest one.)")
         else:
             face_box_coor = face_zone[0]
+
+        if apply_augmentation:
+            aug_factor = np.random.uniform(1 - box_augmentation_range, 1 + box_augmentation_range, 4)
+            face_box_coor = np.multiply(face_box_coor, aug_factor).astype(int)
+
         if use_larger_box:
             face_box_coor[0] = max(0, face_box_coor[0] - (larger_box_coef - 1.0) / 2 * face_box_coor[2])
             face_box_coor[1] = max(0, face_box_coor[1] - (larger_box_coef - 1.0) / 2 * face_box_coor[3])
             face_box_coor[2] = larger_box_coef * face_box_coor[2]
             face_box_coor[3] = larger_box_coef * face_box_coor[3]
+        
         return face_box_coor
 
     def crop_face_resize(self, frames, use_face_detection, use_larger_box, larger_box_coef, use_dynamic_detection, 
@@ -320,7 +326,7 @@ class BaseLoader(Dataset):
         # Perform face detection by num_dynamic_det" times.
         for idx in range(num_dynamic_det):
             if use_face_detection:
-                face_region_all.append(self.face_detection(frames[detection_freq * idx], use_larger_box, larger_box_coef))
+                face_region_all.append(self.face_detection(frames[detection_freq * idx], use_larger_box, larger_box_coef, box_augmentation_range=0.1, apply_augmentation=True))
             else:
                 face_region_all.append([0, 0, frames.shape[1], frames.shape[2]])
         face_region_all = np.asarray(face_region_all, dtype='int')
