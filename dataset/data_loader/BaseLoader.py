@@ -262,7 +262,7 @@ class BaseLoader(Dataset):
 
         return frames_clips, bvps_clips
 
-    def face_detection(self, frame, use_larger_box=False, larger_box_coef=1.0, box_augmentation_range=0.1,apply_augmentation=True,):
+    def face_detection(self, frame, use_larger_box=False, larger_box_coef=1.0, box_augmentation_range=0.1,apply_augmentation=True):
         """Face detection on a single frame.
 
         Args:
