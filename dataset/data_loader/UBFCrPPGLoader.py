@@ -13,8 +13,8 @@ import cv2
 import numpy as np
 from dataset.data_loader.BaseLoader import BaseLoader
 from tqdm import tqdm
-
-
+from torchvision import transforms
+import random
 class UBFCrPPGLoader(BaseLoader):
     """The data loader for the UBFC-rPPG dataset."""
 
@@ -64,10 +64,55 @@ class UBFCrPPGLoader(BaseLoader):
 
         return data_dirs_new
 
+    def calculate_brightness(frame):
+        """Compute the brightness of a given frame."""
+        return np.mean(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+    def augment_brightness(frame, brightness_factor):
+        return np.clip(frame * brightness_factor, 0, 255).astype(np.uint8)
+
+
+    def generate_constant_transform(self):
+        ubfc_brightness_min, ubfc_brightness_max = 115, 140
+        smartphone_brightness_min, smartphone_brightness_max = 95, 182
+        brightness_lower_factor = smartphone_brightness_min / ubfc_brightness_max
+        brightness_upper_factor = smartphone_brightness_max / ubfc_brightness_min
+        brightness_const = random.uniform(brightness_lower_factor, brightness_upper_factor)
+
+        ubfc_saturation_min, ubfc_saturation_max = 20, 145
+        smartphone_saturation_min, smartphone_saturation_max = 82, 135
+        saturation_lower_factor = smartphone_saturation_min / ubfc_saturation_max
+        saturation_upper_factor = smartphone_saturation_max / ubfc_saturation_min
+        saturation_const = random.uniform(saturation_lower_factor, saturation_upper_factor)
+
+        constant_transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.ColorJitter(
+                brightness=brightness_const,
+                
+            ),
+            transforms.ToTensor()
+          ])
+        return constant_transform
+
     def preprocess_dataset_subprocess(self, data_dirs, config_preprocess, i, file_list_dict):
         """ invoked by preprocess_dataset for multi_process."""
         filename = os.path.split(data_dirs[i]['path'])[-1]
         saved_filename = data_dirs[i]['index']
+
+        '''ubfc_brightness_min, ubfc_brightness_max = 115, 145
+        smartphone_brightness_min, smartphone_brightness_max = 90, 180
+        brightness_lower_factor = smartphone_brightness_min / ubfc_brightness_max
+        brightness_upper_factor = smartphone_brightness_max / ubfc_brightness_min
+        brightness_const = random.uniform(brightness_lower_factor, brightness_upper_factor)'''
+
+
+        '''ubfc_saturation_min, ubfc_saturation_max = 95, 185
+        smartphone_saturation_min, smartphone_saturation_max = 82, 135
+        saturation_lower_factor = smartphone_saturation_min / ubfc_saturation_max
+        saturation_upper_factor = smartphone_saturation_max / ubfc_saturation_min
+        saturation_const = random.uniform(saturation_lower_factor, saturation_upper_factor)'''
+
+        constant_transform = self.generate_constant_transform()
 
         # Read Frames
         if 'None' in config_preprocess.DATA_AUG:
@@ -87,13 +132,41 @@ class UBFCrPPGLoader(BaseLoader):
         else:
             bvps = self.read_wave(
                 os.path.join(data_dirs[i]['path'],"ground_truth.txt"))
-            
-        frames_clips, bvps_clips = self.preprocess(frames, bvps, config_preprocess)
-        input_name_list, label_name_list = self.save_multi_process(frames_clips, bvps_clips, saved_filename)
+        
+        augmented_frames = self.read_video(
+                os.path.join(data_dirs[i]['path'],"vid.avi"), transform=constant_transform)
+        
+
+        
+        #print("Transformed shape:", augmented_frames.shape)
+        
+
+        augmented_frames = augmented_frames.astype('uint8')
+
+        # Check if dimensions match before concatenation
+        
+        
+
+        # Combine original and augmented frames
+        combined_frames = np.concatenate((frames, augmented_frames), axis=0)
+    
+        # Duplicate labels to match the combined frames
+        duplicated_bvps = np.concatenate((bvps, bvps), axis=0)
+    
+        # Ensure the label length matches the combined frames length
+        target_length = combined_frames.shape[0]
+        duplicated_bvps = BaseLoader.resample_ppg(duplicated_bvps, target_length)
+    
+        frames_clips, bvps_clips = self.preprocess(
+            combined_frames, duplicated_bvps, config_preprocess)
+    
+        input_name_list, label_name_list = self.save_multi_process(
+            frames_clips, bvps_clips, saved_filename)
+    
         file_list_dict[i] = input_name_list
 
     @staticmethod
-    def read_video(video_file):
+    def read_video(video_file, transform=None):
         """Reads a video file, returns frames(T, H, W, 3) """
         VidObj = cv2.VideoCapture(video_file)
         VidObj.set(cv2.CAP_PROP_POS_MSEC, 0)
@@ -102,6 +175,9 @@ class UBFCrPPGLoader(BaseLoader):
         while success:
             frame = cv2.cvtColor(np.array(frame), cv2.COLOR_BGR2RGB)
             frame = np.asarray(frame)
+            if transform is not None:
+                frame = transform(frame)
+                frame = frame.permute(1,2,0).numpy()
             frames.append(frame)
             success, frame = VidObj.read()
         return np.asarray(frames)
