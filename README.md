@@ -1,6 +1,6 @@
 # Remote Heart Rate Estimation for Mobile Video: Augmentation-Based Domain Adaptation
 
-MSc dissertation project — University College London, Department of Computer Science, 2023.
+Internship project at [Klarity Health](https://www.klarity.co.uk) · UCL MSc Dissertation, Department of Computer Science, 2023.
 
 Neural rPPG models trained on controlled lab datasets degrade significantly when tested on unconstrained smartphone video. This project systematically evaluates three augmentation strategies to close that gap, benchmarked across TS-CAN, DeepPhys, and EfficientPhys on both public datasets and a proprietary mobile video dataset collected with Klarity Health.
 
